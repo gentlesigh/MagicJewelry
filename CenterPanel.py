@@ -6,11 +6,11 @@ from Jewelry import Jewelry
 from Shape import Shape
 from CalcUtil import CalcUtil
 
-def CenterPanel():
+class CenterPanel():
     def __init__(self):
         self.state = 0
         self.fail = False
-
+        self.jewelry_count = 0  # 初始化珠宝数量
         # Jewelry 是一个假想的类，在此处你需要定义或导入它
         self.all_jewelry = [[None for _ in range(GameConst.All_Rows())] for _ in range(GameConst.All_Cols())]
 
@@ -21,25 +21,54 @@ def CenterPanel():
         self.speed_count = 0
         self.check_times = 0
         self.cur_remove_cnt = 0
-
+        self.screen = None
         self.next_shape = None
         self.curr_shape = Shape()  # Shape 也需要定义或导入
-
+        self.color = (0, 0, 0)  # 背景颜色为黑色
         self.delay = 1000
-        self.timer = threading.Timer(self.delay / 1000, self.timer_event)
-        # Set up shape
+        self.timer = pygame.time.Clock()
         self.next_shape = Shape.next_shape()  # Assumes you have a Shape class with a next_shape method
 
         # Initialize all squares or other necessary components
         self.init_all_square()
 
-        # Load and play music
+        # CenterPanel.py 中修复音乐加载部分
         try:
             pygame.mixer.init()
-            pygame.mixer.music.load(GameConst.music0)  # GameConst.music0 should be the path to your music file
-            pygame.mixer.music.play(-1)  # Play the music indefinitely
+            music_path = GameConst.get_music(0)  # 获取第一个音乐文件路径
+            if music_path:
+                pygame.mixer.music.load(music_path)  # 加载音乐
+                pygame.mixer.music.play(-1)  # 循环播放音乐
+            else:
+                print("未找到音乐文件")
         except pygame.error as e:
             print(f"Error loading or playing music: {e}")
+
+    def can_drop(self, shape):
+        """
+        检查当前形状是否可以继续下落，基于 self.all_jewelry 进行判断
+        """
+        for jewelry in shape.get_jewelrys():  # 遍历当前形状的每个珠宝对象
+            next_row = jewelry.get_row() + 1  # 预测下落后的行位置
+            col = jewelry.get_col()  # 当前列
+            if next_row >= GameConst.All_Rows():  # 如果下落超出游戏网格的底部
+                return False
+            if self.all_jewelry[col][next_row] is not None:  # 如果目标位置已被占用
+                return False
+        return True  # 所有珠宝的目标位置有效，则可以下落
+
+    def place_square(self, shape):
+        """
+        将当前形状固定在游戏网格内，并更新 self.all_jewelry 状态
+        """
+        for jewelry in shape.get_jewelrys():
+            row = jewelry.get_row()
+            col = jewelry.get_col()
+            # 将珠宝对象放置到相应的网格位置
+            self.all_jewelry[col][row] = jewelry
+        # 这里可以调用消除逻辑，以及检查游戏失败条件
+        self.remove()
+        self.check_fail(shape)
 
     def timer_event(self):
         # 在这里定义计时器触发时的行为
@@ -59,8 +88,15 @@ def CenterPanel():
 
     def paint(self):
         # 绘制背景
-        background_image = GameConst.BACKGROUND.get_image()
-        self.screen.blit(background_image, (0, 0))
+        background_image = GameConst.background  # 使用模块级变量 background
+        if background_image:  # 确保背景已正确加载
+            self.screen.blit(background_image, (0, 0))
+        else:
+            self.screen.fill((0, 0, 0))  # 如果未加载成功，则使用黑色填充背景
+
+        # 填充颜色（如果有定义 `self.color`）
+        if self.screen:
+            self.screen.fill(self.color)  # 使用 `color` 填充背景
 
         # 提示暂停信息
         if self.state == 2:
@@ -69,22 +105,22 @@ def CenterPanel():
             self.screen.blit(text, (200, 300))
             return
 
-        # 绘制下一个形状的提示
+        # 绘制 "NEXT" 字样
         font = pygame.font.SysFont("微软雅黑", 18, bold=True)
         text = font.render("NEXT", True, (255, 255, 255))
         self.screen.blit(text, (50, 50))
 
-        # 画下一组方块
+        # 绘制下一个形状
         for i, jewelry in enumerate(self.next_shape.get_jewelrys()):
             pygame.draw.rect(self.screen, jewelry.get_color(),
                              (Jewelry.TOP, 80 + i * Jewelry.WIDTH, Jewelry.WIDTH, Jewelry.WIDTH))
 
-        # 画游戏主界面
+        # 绘制主游戏界面
         pygame.draw.rect(self.screen, (0, 0, 0), (300, Jewelry.TOP, 180, 450), 1)
 
-        # 画蓝色的下划线
-        for i in range(GameConst.ALLCOLS):
-            for j in range(GameConst.ALLROWS):
+        # 绘制蓝色下划线
+        for i in range(GameConst.ALL_COLS):
+            for j in range(GameConst.ALL_ROWS):
                 pygame.draw.line(self.screen, (0, 0, 255), (300 + i * 30, 50 + (j + 1) * 30),
                                  (300 + (i + 1) * 30 - 2, 50 + (j + 1) * 30))
 
@@ -106,7 +142,7 @@ def CenterPanel():
             for i, jewelry in enumerate(self.curr_shape.get_jewelrys()):
                 jewelry.set_color(self.next_shape.get_jewelrys()[2 - i].get_color())
 
-        # 是否可以下落
+        # 检查是否可以下落
         can_drop = self.can_drop(self.curr_shape)
 
         if can_drop:
@@ -169,7 +205,7 @@ def CenterPanel():
                 if cur.get_row() < 0:
                     self.fail = True
                     # 停止计时器逻辑
-                    self.timer.tick(0)  # 假设 tick(0) 类似于停止
+                    self.timer.tick(60)
                     return
 
             # 将方块放置到游戏区域
@@ -199,7 +235,7 @@ def CenterPanel():
 
         # 调整时间间隔
         self.delay = max(100, 1000 - 3 * ((self.level + 1) % 256))  # 确保时间间隔不低于100ms
-        self.timer.tick(self.delay)  # 设置 timer 的延迟
+        self.timer.tick(self.delay)  # 使用 Pygame 的计时逻辑
 
     def remove(self, c):
         """消除方块并处理得分、等级逻辑以及音频播放"""
@@ -259,8 +295,8 @@ def CenterPanel():
         pygame.display.flip()  # 刷新屏幕显示
 
     def key_pressed(self, event):
-        """处理按键按下事件"""
-        key_code = event.key
+        # 键盘事件处理逻辑（可自定义）
+        print(f"Key pressed: {event.key}")
 
         if key_code == pygame.K_RETURN:  # 对应 Java 的 KeyEvent.VK_ENTER
             # 未启动和暂停状态可以启动
@@ -492,3 +528,14 @@ def CenterPanel():
                             break
 
         return remove_cnt
+
+    def check_fail(self, shape):
+        """
+        检查游戏是否失败（即新方块生成的位置已被占用）
+        """
+        for jewelry in shape.get_jewelrys():
+            row = jewelry.get_row()
+            col = jewelry.get_col()
+            if self.all_jewelry[col][row] is not None:  # 如果生成位置被占用
+                self.fail = True  # 游戏失败
+                print("Game Over")

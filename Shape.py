@@ -1,6 +1,8 @@
 import pygame
 import GameConst
 from Jewelry import Jewelry
+
+
 class Shape:
     def __init__(self):
         self.white = False
@@ -8,13 +10,14 @@ class Shape:
         self.init()
 
     def init(self):
-        self.jewelrys[0] = Jewelry
+        # 修正对 Jewelry 实例的创建
+        self.jewelrys[0] = Jewelry()
 
-        self.jewelrys[1] = Jewelry
-        self.jewelrys[1].set_row(-1)
+        self.jewelrys[1] = Jewelry()
+        self.jewelrys[1].set_row(-1)  # 设置行属性
 
-        self.jewelrys[2] = Jewelry
-        self.jewelrys[2].set_row(-2)
+        self.jewelrys[2] = Jewelry()
+        self.jewelrys[2].set_row(-2)  # 设置行属性
 
     def get_jewelrys(self):
         return self.jewelrys
@@ -32,7 +35,7 @@ class Shape:
             if jewelry.get_col() < 5:
                 jewelry.right()
 
-    # Swap colors
+    # 交换颜色
     def up(self):
         color = self.jewelrys[2].get_color()
         self.jewelrys[2].set_color(self.jewelrys[1].get_color())

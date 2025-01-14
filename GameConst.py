@@ -1,7 +1,7 @@
 import os
 import random
-
 import pygame
+
 
 # 定义常量
 BACKGROUND_IMAGE_PATH = 'resource/background.png'
@@ -23,7 +23,10 @@ def load_background():
         return pygame.image.load(BACKGROUND_IMAGE_PATH)
     else:
         print(f"Background image not found at {BACKGROUND_IMAGE_PATH}")
-        return None
+        # 如果路径错误，加载创建纯黑背景替代
+        surface = pygame.Surface((800, 600))
+        surface.fill((0, 0, 0))  # 默认黑色
+        return surface
 
 
 # 颜色列表
@@ -41,6 +44,13 @@ COLOR_LIST = [
 def next_color():
     return random.choice(COLOR_LIST)
 
+# 获取音乐文件路径
+def get_music(index):
+    """根据索引获取音乐文件路径"""
+    if index < len(MUSIC_FILES):
+        return MUSIC_FILES[index]
+    else:
+        return None  # 索引超出范围
 
 # 加载音乐
 def load_music():
