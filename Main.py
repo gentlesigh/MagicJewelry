@@ -22,9 +22,11 @@ except Exception as e:
     pygame.quit()
     sys.exit(1)
 
+clock = pygame.time.Clock()
 # 游戏循环
 running = True
 while running:
+    clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False

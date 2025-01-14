@@ -48,29 +48,42 @@ class CenterPanel():
 
     def can_drop(self, shape):
         """
-        检查当前形状是否可以继续下落，基于 self.all_jewelry 进行判断
+        判断当前形状是否可以继续下落
         """
-        for jewelry in shape.get_jewelrys():  # 遍历当前形状的每个珠宝对象
-            next_row = jewelry.get_row() + 1  # 预测下落后的行位置
+        for jewelry in shape.get_jewelrys():  # 遍历当前形状的每块宝石
+            next_row = jewelry.get_row() + 1  # 预测下一步的行位置
             col = jewelry.get_col()  # 当前列
-            if next_row >= GameConst.All_Rows():  # 如果下落超出游戏网格的底部
+
+            # 如果超出网格底部，则返回 False
+            if next_row >= GameConst.All_Rows():
                 return False
-            if self.all_jewelry[col][next_row] is not None:  # 如果目标位置已被占用
+
+            # 如果目标位置已被占用，则返回 False
+            if self.all_jewelry[col][next_row] is not None and not self.all_jewelry[col][next_row].is_empty():
                 return False
-        return True  # 所有珠宝的目标位置有效，则可以下落
+
+        return True  # 如果所有珠宝位置都有效，则可以继续下落
 
     def place_square(self, shape):
         """
-        将当前形状固定在游戏网格内，并更新 self.all_jewelry 状态
+        将当前形状固定在网格中，并更新网格状态
         """
         for jewelry in shape.get_jewelrys():
             row = jewelry.get_row()
             col = jewelry.get_col()
-            # 将珠宝对象放置到相应的网格位置
+
+            # 放置当前形状到网格中
             self.all_jewelry[col][row] = jewelry
-        # 这里可以调用消除逻辑，以及检查游戏失败条件
+
+        # 调用消除逻辑检查是否有需要消除的行/列
         self.remove()
+
+        # 检查游戏失败状态
         self.check_fail(shape)
+
+        # 切换到下一个形状
+        self.curr_shape = self.next_shape
+        self.next_shape = Shape.next_shape()
 
     def timer_event(self):    # 计时器事件
         # 在这里定义计时器触发时的行为
@@ -89,20 +102,21 @@ class CenterPanel():
                 self.all_jewelry[i][k] = jewelry
 
     def paint(self):    # 绘制游戏界面
+        # 绘制背景
         background_image = GameConst.background
         if background_image:
             self.screen.blit(background_image, (0, 0))
         else:
-            print("DEBUG: 使用默认黑色背景填充")
             self.screen.fill((0, 0, 0))
-        # 提示暂停信息
+
+        # 绘制暂停状态
         if self.state == 2:
             font = pygame.font.SysFont("微软雅黑", 72, bold=True)
             text = font.render("Game Pause", True, (255, 255, 255))
             self.screen.blit(text, (200, 300))
             return
 
-        # 绘制 "NEXT" 字样
+        # 绘制 "NEXT" 提示文字
         font = pygame.font.SysFont("微软雅黑", 18, bold=True)
         text = font.render("NEXT", True, (255, 255, 255))
         self.screen.blit(text, (50, 50))
@@ -110,11 +124,15 @@ class CenterPanel():
         # 绘制下一个形状
         for i, jewelry in enumerate(self.next_shape.get_jewelrys()):
             pygame.draw.rect(self.screen, jewelry.get_color(),
-                             (Jewelry.TOP, 80 + i * Jewelry.WIDTH, Jewelry.WIDTH, Jewelry.WIDTH))
+                             (Jewelry.LEFT + i * Jewelry.WIDTH, 80, Jewelry.WIDTH, Jewelry.WIDTH))
 
         # 绘制主游戏界面
-        pygame.draw.rect(self.screen, (0, 0, 0), (300, Jewelry.TOP, 180, 450), 1)
-
+        if not self.fail:  # 游戏未失败时绘制游戏状态
+            self.draw_all_jewelry()
+        else:  # 显示游戏结束文字
+            font = pygame.font.SysFont("微软雅黑", 72, bold=True)
+            text = font.render("Game Over", True, (255, 255, 255))
+            self.screen.blit(text, (200, 300))
         # 绘制蓝色下划线
         for i in range(GameConst.ALL_COLS):
             for j in range(GameConst.ALL_ROWS):
@@ -346,10 +364,9 @@ class CenterPanel():
             right = CalcUtil.calc_right(jewelry, self.all_jewelry)
             cnt = left + right + 1
             if cnt >= 3:
-                print(f"row {cnt}")
                 for col in range(jewelry.get_col() - left, jewelry.get_col() + right + 1):
                     self.all_jewelry[col][jewelry.get_row()].set_empty(True)
-                self.jelewey += cnt
+                self.jeweley += cnt
                 self.jel_cnt += cnt
                 self.cur_remove_cnt += cnt
 
@@ -361,7 +378,7 @@ class CenterPanel():
                 print(f"col {cnt}")
                 for row in range(jewelry.get_row() - top, jewelry.get_row() + down + 1):
                     self.all_jewelry[jewelry.get_col()][row].set_empty(True)
-                self.jelewey += cnt
+                self.jewelry += cnt
                 self.jel_cnt += cnt
                 self.cur_remove_cnt += cnt
 
@@ -376,7 +393,7 @@ class CenterPanel():
                         range(jewelry.get_col() - lefttop, jewelry.get_col() + rightdown + 1),
                 ):
                     self.all_jewelry[col][row].set_empty(True)
-                self.jelewey += cnt
+                self.jewelry += cnt
                 self.jel_cnt += cnt
                 self.cur_remove_cnt += cnt
 
@@ -391,7 +408,7 @@ class CenterPanel():
                         range(jewelry.get_col() - leftdown, jewelry.get_col() + righttop + 1),
                 ):
                     self.all_jewelry[col][row].set_empty(True)
-                self.jelewey += cnt
+                self.jewelry += cnt
                 self.jel_cnt += cnt
                 self.cur_remove_cnt += cnt
 
@@ -445,7 +462,7 @@ class CenterPanel():
                     print(f"row {cnt}")
                     for col in range(cur.get_col() - left, cur.get_col() + right + 1):
                         self.all_jewelry[col][cur.get_row()].set_empty(True)
-                    self.jelewey += cnt
+                    self.jewelry += cnt
                     self.jel_cnt += cnt
 
                 # 列消除逻辑
@@ -456,7 +473,7 @@ class CenterPanel():
                     print(f"col {cnt}")
                     for row in range(cur.get_row() - top, cur.get_row() + down + 1):
                         self.all_jewelry[cur.get_col()][row].set_empty(True)
-                    self.jelewey += cnt
+                    self.jewelry += cnt
                     self.jel_cnt += cnt
 
                 # 左上到右下的对角线消除
@@ -470,7 +487,7 @@ class CenterPanel():
                             range(cur.get_col() - lefttop, cur.get_col() + rightdown + 1),
                     ):
                         self.all_jewelry[col][row].set_empty(True)
-                    self.jelewey += cnt
+                    self.jewelry += cnt
                     self.jel_cnt += cnt
 
                 # 左下到右上的对角线消除
@@ -484,7 +501,7 @@ class CenterPanel():
                             range(cur.get_col() - leftdown, cur.get_col() + righttop + 1),
                     ):
                         self.all_jewelry[col][row].set_empty(True)
-                    self.jelewey += cnt
+                    self.jewelry += cnt
                     self.jel_cnt += cnt
 
         # 触发珠宝下落逻辑
@@ -528,19 +545,16 @@ class CenterPanel():
 
     def check_fail(self, shape):
         """
-        检查游戏是否失败（即新方块生成的位置已被占用）
+        检查游戏失败条件：新形状生成位置被占用
         """
         for jewelry in shape.get_jewelrys():
             row = jewelry.get_row()
             col = jewelry.get_col()
 
-            # 避免超出网格检查无效区域
-            if row < 0 or row >= GameConst.ALL_ROWS:
-                continue
-
-            # 如果指定位置已被占用，则游戏失败
-            if self.all_jewelry[col][row] is not None and not self.all_jewelry[col][row].is_empty():
+            # 检查形状生成位置是否已经被占用或超出顶部范围
+            if row < 0 or self.all_jewelry[col][row] is not None and not self.all_jewelry[col][row].is_empty():
                 self.fail = True
                 print("Game Over")
-                return
-        self.fail = False  # 没有冲突，重置失败状态
+                return  # 一旦失败，直接返回，避免多余操作
+
+        self.fail = False  # 如果没有触发失败条件，则游戏继续
