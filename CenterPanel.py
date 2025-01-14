@@ -1,6 +1,8 @@
 import math
 import threading
 import pygame
+from pygame.key import key_code
+
 import GameConst
 from Jewelry import Jewelry
 from Shape import Shape
@@ -70,13 +72,13 @@ class CenterPanel():
         self.remove()
         self.check_fail(shape)
 
-    def timer_event(self):
+    def timer_event(self):    # 计时器事件
         # 在这里定义计时器触发时的行为
         print("Timer event triggered")
         self.timer = threading.Timer(self.delay / 1000, self.timer_event)
         self.timer.start()
 
-    def init_all_square(self):
+    def init_all_square(self):    # 初始化所有方块
         for i in range(len(self.all_jewelry)):
             for k in range(len(self.all_jewelry[i])):
                 jewelry = Jewelry()
@@ -86,18 +88,13 @@ class CenterPanel():
                 jewelry.set_color(pygame.Color('black'))  # 使用 Pygame 的 Color 类
                 self.all_jewelry[i][k] = jewelry
 
-    def paint(self):
-        # 绘制背景
-        background_image = GameConst.background  # 使用模块级变量 background
-        if background_image:  # 确保背景已正确加载
+    def paint(self):    # 绘制游戏界面
+        background_image = GameConst.background
+        if background_image:
             self.screen.blit(background_image, (0, 0))
         else:
-            self.screen.fill((0, 0, 0))  # 如果未加载成功，则使用黑色填充背景
-
-        # 填充颜色（如果有定义 `self.color`）
-        if self.screen:
-            self.screen.fill(self.color)  # 使用 `color` 填充背景
-
+            print("DEBUG: 使用默认黑色背景填充")
+            self.screen.fill((0, 0, 0))
         # 提示暂停信息
         if self.state == 2:
             font = pygame.font.SysFont("微软雅黑", 72, bold=True)
@@ -536,6 +533,14 @@ class CenterPanel():
         for jewelry in shape.get_jewelrys():
             row = jewelry.get_row()
             col = jewelry.get_col()
-            if self.all_jewelry[col][row] is not None:  # 如果生成位置被占用
-                self.fail = True  # 游戏失败
+
+            # 避免超出网格检查无效区域
+            if row < 0 or row >= GameConst.ALL_ROWS:
+                continue
+
+            # 如果指定位置已被占用，则游戏失败
+            if self.all_jewelry[col][row] is not None and not self.all_jewelry[col][row].is_empty():
+                self.fail = True
                 print("Game Over")
+                return
+        self.fail = False  # 没有冲突，重置失败状态

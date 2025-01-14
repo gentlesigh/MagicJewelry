@@ -10,7 +10,7 @@ WIDTH, HEIGHT = 800, 600
 
 # 创建窗口
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption('Game Window')
+pygame.display.set_caption('Magic Jewelry')
 
 # 初始化中心面板并绑定 `screen`
 try:

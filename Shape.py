@@ -10,14 +10,15 @@ class Shape:
         self.init()
 
     def init(self):
-        # 修正对 Jewelry 实例的创建
+        # 修正对 Jewelry 实例的行位置
         self.jewelrys[0] = Jewelry()
-
         self.jewelrys[1] = Jewelry()
-        self.jewelrys[1].set_row(-1)  # 设置行属性
-
         self.jewelrys[2] = Jewelry()
-        self.jewelrys[2].set_row(-2)  # 设置行属性
+
+        # 设置合理初始位置，防止溢出
+        self.jewelrys[0].set_row(0)  # 第一块珠宝设置到第一行
+        self.jewelrys[1].set_row(1)  # 第二块珠宝设置到第二行
+        self.jewelrys[2].set_row(2)  # 第三块珠宝设置到第三行
 
     def get_jewelrys(self):
         return self.jewelrys

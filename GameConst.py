@@ -19,13 +19,20 @@ MUSIC_FILES = [
 
 # 加载背景图像
 def load_background():
+    print(f"当前工作目录: {os.getcwd()}")
+
     if os.path.exists(BACKGROUND_IMAGE_PATH):
-        return pygame.image.load(BACKGROUND_IMAGE_PATH)
+        try:
+            print(f"加载背景图: {BACKGROUND_IMAGE_PATH}")
+            return pygame.image.load(BACKGROUND_IMAGE_PATH)
+        except pygame.error as e:
+            print(f"加载背景图失败，错误信息: {e}")
+            raise
     else:
-        print(f"Background image not found at {BACKGROUND_IMAGE_PATH}")
+        print(f"路径不存在: {BACKGROUND_IMAGE_PATH}")
         # 如果路径错误，加载创建纯黑背景替代
-        surface = pygame.Surface((800, 600))
-        surface.fill((0, 0, 0))  # 默认黑色
+        surface = pygame.Surface((800, 600))  # 替代背景
+        surface.fill((0, 0, 0))  # 黑色填充
         return surface
 
 
