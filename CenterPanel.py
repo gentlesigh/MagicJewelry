@@ -101,20 +101,20 @@ class CenterPanel():
                 jewelry.set_color(pygame.Color('black'))  # 使用 Pygame 的 Color 类
                 self.all_jewelry[i][k] = jewelry
 
-    def paint(self):    # 绘制游戏界面
+    def paint(self):  # 绘制游戏界面
         # 绘制背景
         background_image = GameConst.background
         if background_image:
-            self.screen.blit(background_image, (0, 0))
+            self.screen.blit(background_image, (0, 0))  # 绘制背景图像
         else:
-            self.screen.fill((0, 0, 0))
+            self.screen.fill((0, 0, 0))  # 如果背景为空，则填充为黑色
 
         # 绘制暂停状态
-        if self.state == 2:
+        if self.state == 2:  # 如果游戏处于暂停状态
             font = pygame.font.SysFont("微软雅黑", 72, bold=True)
             text = font.render("Game Pause", True, (255, 255, 255))
-            self.screen.blit(text, (200, 300))
-            return
+            self.screen.blit(text, (200, 300))  # 将暂停文字绘制到屏幕
+            return  # 返回，不继续绘制
 
         # 绘制 "NEXT" 提示文字
         font = pygame.font.SysFont("微软雅黑", 18, bold=True)
@@ -122,66 +122,55 @@ class CenterPanel():
         self.screen.blit(text, (50, 50))
 
         # 绘制下一个形状
-        for i, jewelry in enumerate(self.next_shape.get_jewelrys()):
-            pygame.draw.rect(self.screen, jewelry.get_color(),
-                             (Jewelry.LEFT + i * Jewelry.WIDTH, 80, Jewelry.WIDTH, Jewelry.WIDTH))
+        for jewelry in self.next_shape.get_jewelrys():
+            x = Jewelry.LEFT + jewelry.get_col() * Jewelry.WIDTH  # 计算横向位置
+            y = 80 + jewelry.get_row() * Jewelry.WIDTH  # 计算纵向位置
+            pygame.draw.rect(self.screen, jewelry.get_color(), (x, y, Jewelry.WIDTH, Jewelry.WIDTH))
 
-        # 绘制主游戏界面
-        if not self.fail:  # 游戏未失败时绘制游戏状态
-            self.draw_all_jewelry()
-        else:  # 显示游戏结束文字
-            font = pygame.font.SysFont("微软雅黑", 72, bold=True)
-            text = font.render("Game Over", True, (255, 255, 255))
-            self.screen.blit(text, (200, 300))
-        # 绘制蓝色下划线
-        for i in range(GameConst.ALL_COLS):
-            for j in range(GameConst.ALL_ROWS):
-                pygame.draw.line(self.screen, (0, 0, 255), (300 + i * 30, 50 + (j + 1) * 30),
-                                 (300 + (i + 1) * 30 - 2, 50 + (j + 1) * 30))
+            # 绘制主游戏界面
+            if not self.fail:  # 游戏未失败时绘制游戏状态
+                self.draw_all_jewelry()
+            else:  # 显示游戏结束文字
+                font = pygame.font.SysFont("微软雅黑", 72, bold=True)
+                text = font.render("Game Over", True, (255, 255, 255))
+                self.screen.blit(text, (200, 300))
+            # 绘制蓝色下划线
+            for i in range(GameConst.ALL_COLS):
+                for j in range(GameConst.ALL_ROWS):
+                    pygame.draw.line(self.screen, (0, 0, 255), (300 + i * 30, 50 + (j + 1) * 30),
+                                     (300 + (i + 1) * 30 - 2, 50 + (j + 1) * 30))
 
+        # 游戏结束状态，显示 "Game Over"
         if self.fail:
-            self.draw_all_jewelry()
-            self.draw_data()
+            self.draw_all_jewelry()  # 绘制当前背景中的所有珠宝
+            self.draw_data()  # 显示分数数据
             font = pygame.font.SysFont("微软雅黑", 72, bold=True)
             text = font.render("Game Over", True, (255, 255, 255))
-            self.screen.blit(text, (200, 300))
-            return
+            self.screen.blit(text, (200, 300))  # 显示 "Game Over"
+            return  # 不再绘制后续的逻辑
 
-        jewelry_one = self.curr_shape.get_jewelrys()[0]
-        if jewelry_one.get_row() == 1:
-            if self.jel_cnt > GameConst.REMOVE_CNT:
-                pass
-            else:
-                self.next_shape = Shape.next_shape()
-        elif jewelry_one.get_row() == 0:
-            for i, jewelry in enumerate(self.curr_shape.get_jewelrys()):
-                jewelry.set_color(self.next_shape.get_jewelrys()[2 - i].get_color())
+        # 控制延迟下落
+        current_time = pygame.time.get_ticks()  # 获取当前时间（毫秒）
+        if current_time - self.speed_count >= self.delay:  # 检查是否超过延迟时间
+            can_drop = self.can_drop(self.curr_shape)  # 检查当前形状能否下落
+            if can_drop:  # 如果可以下落
+                for jewelry in self.curr_shape.get_jewelrys():
+                    jewelry.set_row(jewelry.get_row() + 1)  # 更新行号（下落）
+            else:  # 无法下落时，固定当前形状，并生成新形状
+                self.place_square(self.curr_shape)  # 固定到网格中
+                self.curr_shape = Shape()  # 换成新形状
+            self.speed_count = current_time  # 重置计时器
 
-        # 检查是否可以下落
-        can_drop = self.can_drop(self.curr_shape)
+        # 绘制当前形状
+        for jewelry in self.curr_shape.get_jewelrys():
+            x = Jewelry.LEFT + jewelry.get_col() * Jewelry.WIDTH  # 按列计算横向位置
+            y = Jewelry.TOP + jewelry.get_row() * Jewelry.WIDTH  # 按行计算纵向位置
+            pygame.draw.rect(self.screen, jewelry.get_color(), (x, y, Jewelry.WIDTH, Jewelry.WIDTH))
 
-        if can_drop:
-            for jewelry in self.curr_shape.get_jewelrys():
-                pygame.draw.rect(self.screen, jewelry.get_color(),
-                                 (jewelry.get_x(), jewelry.get_y(), Jewelry.WIDTH, Jewelry.WIDTH))
-                jewelry.set_row(jewelry.get_row() + 1)
-        else:
-            self.place_square(self.curr_shape)
-            if self.curr_shape.is_white():
-                pass
-
-        if not can_drop:
-            if self.jel_cnt > GameConst.REMOVE_CNT:
-                self.curr_shape = Shape()
-                self.curr_shape.set_white(True)
-                self.next_shape = Shape.white_shape()
-                self.jel_cnt = 0
-                self.level += 1
-            else:
-                self.curr_shape = Shape()
-            self.cur_remove_cnt = 0
-
+        # 绘制主游戏网格
         self.draw_all_jewelry()
+
+        # 绘制游戏的分数和数据
         self.draw_data()
 
     def draw_all_jewelry(self):
