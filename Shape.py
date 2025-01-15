@@ -20,6 +20,11 @@ class Shape:
         self.jewelrys[1].set_row(1)  # 第二块珠宝设置到第二行
         self.jewelrys[2].set_row(2)  # 第三块珠宝设置到第三行
 
+        # 随机初始颜色
+        for jewelry in self.jewelrys:
+            jewelry.set_color(GameConst.next_color())  # 随机分配颜色
+            jewelry.set_empty(False)  # 设置为非空
+
     def get_jewelrys(self):
         return self.jewelrys
 
@@ -51,12 +56,13 @@ class Shape:
 
     @staticmethod
     def next_shape():
-        shape = Shape()
+        shape = Shape()  # 创建新形状
         for jewelry in shape.get_jewelrys():
-            color = GameConst.next_color()  # 随机获取颜色
-            jewelry.set_color(color)  # 确保每一块Jewelry正确设置颜色
-            jewelry.set_empty(False)  # 确保不是空块
-        return shape
+            color = GameConst.next_color()  # 随机颜色
+            jewelry.set_color(color)
+            jewelry.set_empty(False)
+            print(f"Set jewelry color to: {color}")  # 调试信息
+        return shape  # 确认返回的是 Shape 对象
 
     @staticmethod
     def white_shape():

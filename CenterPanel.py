@@ -2,7 +2,6 @@ import math
 import threading
 import pygame
 from pygame.key import key_code
-
 import GameConst
 from Jewelry import Jewelry
 from Shape import Shape
@@ -24,16 +23,14 @@ class CenterPanel():
         self.check_times = 0
         self.cur_remove_cnt = 0
         self.screen = None
-        self.next_shape = None
-        self.curr_shape = Shape()  # Shape 也需要定义或导入
+        self.curr_shape = Shape.next_shape()  # 确保初始化的当前形状有颜色
+        self.next_shape = Shape.next_shape()  # 生成下一个形状 # Shape 也需要定义或导入
         self.color = (0, 0, 0)  # 背景颜色为黑色
         self.delay = 1000
         self.timer = pygame.time.Clock()
         self.next_shape = Shape.next_shape()  # Assumes you have a Shape class with a next_shape method
-
-        # Initialize all squares or other necessary components
+        # 初始化所有方块
         self.init_all_square()
-
         # CenterPanel.py 中修复音乐加载部分
         try:
             pygame.mixer.init()
@@ -64,27 +61,6 @@ class CenterPanel():
 
         return True  # 如果所有珠宝位置都有效，则可以继续下落
 
-    def place_square(self, shape):
-        """
-        将当前形状固定在网格中，并更新网格状态
-        """
-        for jewelry in shape.get_jewelrys():
-            row = jewelry.get_row()
-            col = jewelry.get_col()
-
-            # 放置当前形状到网格中
-            self.all_jewelry[col][row] = jewelry
-
-        # 调用消除逻辑检查是否有需要消除的行/列
-        self.remove()
-
-        # 检查游戏失败状态
-        self.check_fail(shape)
-
-        # 切换到下一个形状
-        self.curr_shape = self.next_shape
-        self.next_shape = Shape.next_shape()
-
     def timer_event(self):    # 计时器事件
         # 在这里定义计时器触发时的行为
         print("Timer event triggered")
@@ -98,7 +74,8 @@ class CenterPanel():
                 jewelry.set_row(k)
                 jewelry.set_col(i)
                 jewelry.set_empty(True)
-                jewelry.set_color(pygame.Color('black'))  # 使用 Pygame 的 Color 类
+                if not jewelry.is_empty():  # 确保只对空块操作
+                    jewelry.set_color(pygame.Color('black'))    # 使用 Pygame 的 Color 类
                 self.all_jewelry[i][k] = jewelry
 
     def paint(self):  # 绘制游戏界面
@@ -121,33 +98,36 @@ class CenterPanel():
         text = font.render("NEXT", True, (255, 255, 255))
         self.screen.blit(text, (50, 50))
 
+        # 类型保护：检查 self.next_shape
+        if not isinstance(self.next_shape, Shape):
+            raise TypeError(f"next_shape 不是有效的 Shape 实例，而是 {type(self.next_shape)}")
+
         # 绘制下一个形状
         for jewelry in self.next_shape.get_jewelrys():
-            x = Jewelry.LEFT + jewelry.get_col() * Jewelry.WIDTH  # 计算横向位置
-            y = 80 + jewelry.get_row() * Jewelry.WIDTH  # 计算纵向位置
+            x_offset = 50  # 设置 "NEXT" 提示右侧的偏移量
+            y_offset = 80  # 设置 "NEXT" 提示下侧的偏移量
+            x = x_offset + jewelry.get_col() * Jewelry.WIDTH
+            y = y_offset + jewelry.get_row() * Jewelry.WIDTH
             pygame.draw.rect(self.screen, jewelry.get_color(), (x, y, Jewelry.WIDTH, Jewelry.WIDTH))
 
-            # 绘制主游戏界面
-            if not self.fail:  # 游戏未失败时绘制游戏状态
-                self.draw_all_jewelry()
-            else:  # 显示游戏结束文字
-                font = pygame.font.SysFont("微软雅黑", 72, bold=True)
-                text = font.render("Game Over", True, (255, 255, 255))
-                self.screen.blit(text, (200, 300))
-            # 绘制蓝色下划线
-            for i in range(GameConst.ALL_COLS):
-                for j in range(GameConst.ALL_ROWS):
-                    pygame.draw.line(self.screen, (0, 0, 255), (300 + i * 30, 50 + (j + 1) * 30),
-                                     (300 + (i + 1) * 30 - 2, 50 + (j + 1) * 30))
-
-        # 游戏结束状态，显示 "Game Over"
-        if self.fail:
-            self.draw_all_jewelry()  # 绘制当前背景中的所有珠宝
-            self.draw_data()  # 显示分数数据
+        # 绘制主游戏界面
+        if not self.fail:  # 游戏未失败时绘制游戏状态
+            self.draw_all_jewelry()
+        else:  # 显示游戏结束文字
             font = pygame.font.SysFont("微软雅黑", 72, bold=True)
             text = font.render("Game Over", True, (255, 255, 255))
             self.screen.blit(text, (200, 300))  # 显示 "Game Over"
-            return  # 不再绘制后续的逻辑
+            return  # 游戏结束后不再继续绘制
+
+        # 绘制蓝色下划线
+        for i in range(GameConst.ALL_COLS):
+            for j in range(GameConst.ALL_ROWS):
+                pygame.draw.line(self.screen, (0, 0, 255), (300 + i * 30, 50 + (j + 1) * 30),
+                (300 + (i + 1) * 30 - 2, 50 + (j + 1) * 30))
+
+        # 类型保护：检查 self.curr_shape
+        if not isinstance(self.curr_shape, Shape):
+            raise TypeError(f"curr_shape 不是有效的 Shape 实例，而是 {type(self.curr_shape)}")
 
         # 控制延迟下落
         current_time = pygame.time.get_ticks()  # 获取当前时间（毫秒）
@@ -158,7 +138,7 @@ class CenterPanel():
                     jewelry.set_row(jewelry.get_row() + 1)  # 更新行号（下落）
             else:  # 无法下落时，固定当前形状，并生成新形状
                 self.place_square(self.curr_shape)  # 固定到网格中
-                self.curr_shape = Shape()  # 换成新形状
+                self.curr_shape = Shape.next_shape()  # 换成新形状
             self.speed_count = current_time  # 重置计时器
 
         # 绘制当前形状
@@ -236,47 +216,72 @@ class CenterPanel():
                         if c and jewelry.get_color() == c.get_color():
                             self.check_times += 1
                             self.remove(c)
-
+        # 更新当前形状和下一个形状
+        self.curr_shape = self.next_shape  # 将下一个形状设置为当前形状
+        self.next_shape = Shape.next_shape()  # 生成新的下一个形状
         # 调整时间间隔
         self.delay = max(100, 1000 - 3 * ((self.level + 1) % 256))  # 确保时间间隔不低于100ms
         self.timer.tick(self.delay)  # 使用 Pygame 的计时逻辑
 
-    def remove(self, c):
-        """消除方块并处理得分、等级逻辑以及音频播放"""
-        c.set_empty(True)
+    def remove(self, target):
+        """
+        移除单个珠宝块或整形状，根据输入参数的类型决定操作。
+        - 如果 target 是单个珠宝块，则只处理这个珠宝块。
+        - 如果 target 是形状，则进行形状及多方向的消除判定。
+        """
+        if isinstance(target, Jewelry):  # 处理单个珠宝块
+            target.set_empty(True)
+            target.set_color(pygame.Color('black'))  # 将颜色设置为黑（空块）
+            print(f"Removed single jewelry at ({target.get_row()}, {target.get_col()})")
 
-        # 调用 fallJewelry 检查是否有方块需要下落
-        remove_count = self.fall_jewelry()
-        if remove_count > 0:
-            self.cur_remove_cnt += remove_count
-            self.repaint()  # 调用重新绘制画面
+        elif isinstance(target, Shape):  # 处理整个形状
+            for jewelry in target.get_jewelrys():
+                col, row = jewelry.get_col(), jewelry.get_row()
+
+                # 从当前珠宝扩展检测四个方向
+                left = CalcUtil.calc_left(jewelry, self.all_jewelry)
+                right = CalcUtil.calc_right(jewelry, self.all_jewelry)
+                top = CalcUtil.calc_top(jewelry, self.all_jewelry)
+                down = CalcUtil.calc_down(jewelry, self.all_jewelry)
+                left_top = CalcUtil.calc_left_top(jewelry, self.all_jewelry)
+                right_down = CalcUtil.calc_right_down(jewelry, self.all_jewelry)
+                left_down = CalcUtil.calc_left_down(jewelry, self.all_jewelry)
+                right_top = CalcUtil.calc_right_top(jewelry, self.all_jewelry)
+
+                # 消除横向连块
+                if left + right + 1 >= 3:
+                    for c in range(col - left, col + right + 1):
+                        self.all_jewelry[c][row].set_empty(True)
+                        self.all_jewelry[c][row].set_color(pygame.Color('black'))
+                        print(f"Removed horizontal block at ({row}, {c})")
+
+                # 消除纵向连块
+                if top + down + 1 >= 3:
+                    for r in range(row - top, row + down + 1):
+                        self.all_jewelry[col][r].set_empty(True)
+                        self.all_jewelry[col][r].set_color(pygame.Color('black'))
+                        print(f"Removed vertical block at ({r}, {col})")
+
+                # 消除左上-右下对角线
+                if left_top + right_down + 1 >= 3:
+                    for offset in range(-left_top, right_down + 1):
+                        self.all_jewelry[col + offset][row + offset].set_empty(True)
+                        self.all_jewelry[col + offset][row + offset].set_color(pygame.Color('black'))
+                        print(f"Removed left-top to right-down diagonal block at ({row + offset}, {col + offset})")
+
+                # 消除左下-右上对角线
+                if left_down + right_top + 1 >= 3:
+                    for offset in range(-left_down, right_top + 1):
+                        self.all_jewelry[col + offset][row - offset].set_empty(True)
+                        self.all_jewelry[col + offset][row - offset].set_color(pygame.Color('black'))
+                        print(f"Removed left-down to right-top diagonal block at ({row - offset}, {col + offset})")
+
+            # 触发下落逻辑
+            self.fall_jewelry()
             self.remove_cycle()
 
-        # 计算分数
-        self.score += int(math.pow(2, (self.check_times - 1))) * (
-                    self.cur_remove_cnt * (100 + self.level * self.speed_count))
-
-        # 计算等级
-        if self.jel_cnt > GameConst.REMOVE_CNT:
-            music_index = self.level % 8
-            try:
-                # 播放音乐
-                pygame.mixer.init()
-                if self.music_clip:
-                    pygame.mixer.music.stop()  # 停止当前播放的音乐
-                music_index = 0 if music_index + 1 > 7 else music_index + 1
-                self.music_clip = self.music_list[music_index]
-                pygame.mixer.music.load(self.music_clip)
-                pygame.mixer.music.play(-1)  # 循环播放
-
-            except pygame.error as e:
-                print(f"音乐播放错误: {e}")
-
-            # 如果等级到达 256，则重置等级并恢复初始延迟
-            if self.level % 256 == 0:
-                self.level = 0
-                self.delay = 1000
-                self.timer.tick(self.delay)
+        else:
+            raise TypeError(f"Unexpected type for target: {type(target)}")
 
     def get_change_jewelry(self, jewelry):
         """获取指定珠宝下一个位置的珠宝对象"""
@@ -340,44 +345,6 @@ class CenterPanel():
             if self.curr_shape:
                 self.curr_shape.up()
 
-    def remove(self, shape):
-        """
-        执行当前形状的消除逻辑，调用消除循环
-        """
-        for jewelry in shape.get_jewelrys():
-            col, row = jewelry.get_col(), jewelry.get_row()
-
-            # 从当前珠宝扩展检测四个方向
-            left = CalcUtil.calc_left(jewelry, self.all_jewelry)
-            right = CalcUtil.calc_right(jewelry, self.all_jewelry)
-            top = CalcUtil.calc_top(jewelry, self.all_jewelry)
-            down = CalcUtil.calc_down(jewelry, self.all_jewelry)
-            left_top = CalcUtil.calc_left_top(jewelry, self.all_jewelry)
-            right_down = CalcUtil.calc_right_down(jewelry, self.all_jewelry)
-            left_down = CalcUtil.calc_left_down(jewelry, self.all_jewelry)
-            right_top = CalcUtil.calc_right_top(jewelry, self.all_jewelry)
-
-            # 逐方向消除
-            if left + right + 1 >= 3:
-                for c in range(col - left, col + right + 1):
-                    self.all_jewelry[c][row].set_empty(True)
-                    self.all_jewelry[c][row].set_color(pygame.Color('black'))  # 标记空块
-            if top + down + 1 >= 3:
-                for r in range(row - top, row + down + 1):
-                    self.all_jewelry[col][r].set_empty(True)
-                    self.all_jewelry[col][r].set_color(pygame.Color('black'))
-            if left_top + right_down + 1 >= 3:
-                for offset in range(-left_top, right_down + 1):
-                    self.all_jewelry[col + offset][row + offset].set_empty(True)
-                    self.all_jewelry[col + offset][row + offset].set_color(pygame.Color('black'))
-            if left_down + right_top + 1 >= 3:
-                for offset in range(-left_down, right_top + 1):
-                    self.all_jewelry[col + offset][row - offset].set_empty(True)
-                    self.all_jewelry[col + offset][row - offset].set_color(pygame.Color('black'))
-
-        # 触发下落逻辑
-        self.fall_jewelry()
-        self.remove_cycle()
 
     def remove_cycle(self):
         """
