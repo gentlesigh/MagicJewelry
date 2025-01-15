@@ -53,8 +53,9 @@ class Shape:
     def next_shape():
         shape = Shape()
         for jewelry in shape.get_jewelrys():
-            color = GameConst.next_color()
-            jewelry.set_color(color)
+            color = GameConst.next_color()  # 随机获取颜色
+            jewelry.set_color(color)  # 确保每一块Jewelry正确设置颜色
+            jewelry.set_empty(False)  # 确保不是空块
         return shape
 
     @staticmethod

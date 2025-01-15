@@ -341,195 +341,111 @@ class CenterPanel():
                 self.curr_shape.up()
 
     def remove(self, shape):
-        """移除逻辑，用于消除匹配的方块"""
-        self.check_times = 0
-
-        # 遍历当前形状中的所有珠宝
+        """
+        执行当前形状的消除逻辑，调用消除循环
+        """
         for jewelry in shape.get_jewelrys():
-            self.check_times += 1
+            col, row = jewelry.get_col(), jewelry.get_row()
 
-            # 行消除逻辑
+            # 从当前珠宝扩展检测四个方向
             left = CalcUtil.calc_left(jewelry, self.all_jewelry)
             right = CalcUtil.calc_right(jewelry, self.all_jewelry)
-            cnt = left + right + 1
-            if cnt >= 3:
-                for col in range(jewelry.get_col() - left, jewelry.get_col() + right + 1):
-                    self.all_jewelry[col][jewelry.get_row()].set_empty(True)
-                self.jeweley += cnt
-                self.jel_cnt += cnt
-                self.cur_remove_cnt += cnt
-
-            # 列消除逻辑
             top = CalcUtil.calc_top(jewelry, self.all_jewelry)
             down = CalcUtil.calc_down(jewelry, self.all_jewelry)
-            cnt = top + down + 1
-            if cnt >= 3:
-                print(f"col {cnt}")
-                for row in range(jewelry.get_row() - top, jewelry.get_row() + down + 1):
-                    self.all_jewelry[jewelry.get_col()][row].set_empty(True)
-                self.jewelry += cnt
-                self.jel_cnt += cnt
-                self.cur_remove_cnt += cnt
+            left_top = CalcUtil.calc_left_top(jewelry, self.all_jewelry)
+            right_down = CalcUtil.calc_right_down(jewelry, self.all_jewelry)
+            left_down = CalcUtil.calc_left_down(jewelry, self.all_jewelry)
+            right_top = CalcUtil.calc_right_top(jewelry, self.all_jewelry)
 
-            # 左上到右下的对角线消除
-            lefttop = CalcUtil.calc_left_top(jewelry, self.all_jewelry)
-            rightdown = CalcUtil.calc_right_down(jewelry, self.all_jewelry)
-            cnt = lefttop + rightdown + 1
-            if cnt >= 3:
-                print(f"lefttop {cnt}")
-                for row, col in zip(
-                        range(jewelry.get_row() - lefttop, jewelry.get_row() + rightdown + 1),
-                        range(jewelry.get_col() - lefttop, jewelry.get_col() + rightdown + 1),
-                ):
-                    self.all_jewelry[col][row].set_empty(True)
-                self.jewelry += cnt
-                self.jel_cnt += cnt
-                self.cur_remove_cnt += cnt
+            # 逐方向消除
+            if left + right + 1 >= 3:
+                for c in range(col - left, col + right + 1):
+                    self.all_jewelry[c][row].set_empty(True)
+                    self.all_jewelry[c][row].set_color(pygame.Color('black'))  # 标记空块
+            if top + down + 1 >= 3:
+                for r in range(row - top, row + down + 1):
+                    self.all_jewelry[col][r].set_empty(True)
+                    self.all_jewelry[col][r].set_color(pygame.Color('black'))
+            if left_top + right_down + 1 >= 3:
+                for offset in range(-left_top, right_down + 1):
+                    self.all_jewelry[col + offset][row + offset].set_empty(True)
+                    self.all_jewelry[col + offset][row + offset].set_color(pygame.Color('black'))
+            if left_down + right_top + 1 >= 3:
+                for offset in range(-left_down, right_top + 1):
+                    self.all_jewelry[col + offset][row - offset].set_empty(True)
+                    self.all_jewelry[col + offset][row - offset].set_color(pygame.Color('black'))
 
-            # 左下到右上的对角线消除
-            leftdown = CalcUtil.calc_left_down(jewelry, self.all_jewelry)
-            righttop = CalcUtil.calc_right_top(jewelry, self.all_jewelry)
-            cnt = leftdown + righttop + 1
-            if cnt >= 3:
-                print(f"righttop {cnt}")
-                for row, col in zip(
-                        range(jewelry.get_row() + leftdown, jewelry.get_row() - righttop - 1, -1),
-                        range(jewelry.get_col() - leftdown, jewelry.get_col() + righttop + 1),
-                ):
-                    self.all_jewelry[col][row].set_empty(True)
-                self.jewelry += cnt
-                self.jel_cnt += cnt
-                self.cur_remove_cnt += cnt
-
-        # 触发方块下落逻辑
-        remove_count = self.fall_jewelry()
-        if remove_count > 0:
-            self.cur_remove_cnt += remove_count
-            self.repaint()
-            self.remove_cycle()
-
-        # 更新分数
-        self.score += int(math.pow(2, (self.check_times - 1))) * (
-                    self.cur_remove_cnt * (100 + self.level * self.speed_count))
-
-        # 更新等级并切换音乐
-        if self.jel_cnt > GameConst.REMOVE_CNT:
-            music_index = self.level % 8
-            try:
-                # 播放下一首音乐
-                pygame.mixer.init()
-                if self.music_clip:
-                    pygame.mixer.music.stop()
-                music_index = 0 if music_index + 1 > 7 else music_index + 1
-                self.music_clip = self.music_list[music_index]
-                pygame.mixer.music.load(self.music_clip)
-                pygame.mixer.music.play(-1)  # 循环播放
-
-            except pygame.error as e:
-                print(f"音乐播放错误: {e}")
-
-            # 如果等级达到 256，重置等级并恢复初始延迟
-            if self.level % 256 == 0:
-                self.level = 0
-                self.delay = 1000
-                self.timer.tick(self.delay)
+        # 触发下落逻辑
+        self.fall_jewelry()
+        self.remove_cycle()
 
     def remove_cycle(self):
-        """执行消除循环，检查并消除所有满足条件的珠宝，并触发下落逻辑"""
-        cur_rm_cnt = 0
+        """
+        消除循环逻辑，确保所有符合条件的珠宝都被移除
+        """
+        to_remove = []  # 存储需要移除的珠宝位置
+        for col in range(GameConst.All_Cols()):
+            for row in range(GameConst.All_Rows()):
+                jewelry = self.all_jewelry[col][row]
+                if jewelry.is_empty():
+                    continue  # 跳过空块
 
-        # 遍历所有的珠宝格子
-        for i in range(6):  # 假设游戏区域为 6 列
-            for j in range(15):  # 假设游戏区域为 15 行
-                cur = self.all_jewelry[i][j]
+                # 逐方向检查所有可能消除的条件
+                left = CalcUtil.calc_left(jewelry, self.all_jewelry)
+                right = CalcUtil.calc_right(jewelry, self.all_jewelry)
+                top = CalcUtil.calc_top(jewelry, self.all_jewelry)
+                down = CalcUtil.calc_down(jewelry, self.all_jewelry)
+                left_top = CalcUtil.calc_left_top(jewelry, self.all_jewelry)
+                right_down = CalcUtil.calc_right_down(jewelry, self.all_jewelry)
+                left_down = CalcUtil.calc_left_down(jewelry, self.all_jewelry)
+                right_top = CalcUtil.calc_right_top(jewelry, self.all_jewelry)
 
-                # 行消除逻辑
-                left = CalcUtil.calc_left(cur, self.all_jewelry)
-                right = CalcUtil.calc_right(cur, self.all_jewelry)
-                cnt = left + right + 1
-                if cnt >= 3:
-                    print(f"row {cnt}")
-                    for col in range(cur.get_col() - left, cur.get_col() + right + 1):
-                        self.all_jewelry[col][cur.get_row()].set_empty(True)
-                    self.jewelry += cnt
-                    self.jel_cnt += cnt
+                # 检查消除条件，行/列/对角线均至少 3 连
+                if left + right + 1 >= 3:  # 横向
+                    to_remove.extend([(col - x, row) for x in range(left)] + [(col + x, row) for x in range(right + 1)])
+                if top + down + 1 >= 3:  # 纵向
+                    to_remove.extend([(col, row - x) for x in range(top)] + [(col, row + x) for x in range(down + 1)])
+                if left_top + right_down + 1 >= 3:  # 左上右下对角线
+                    to_remove.extend([(col - x, row - x) for x in range(left_top)] +
+                                     [(col + x, row + x) for x in range(right_down + 1)])
+                if left_down + right_top + 1 >= 3:  # 左下右上对角线
+                    to_remove.extend([(col - x, row + x) for x in range(left_down)] +
+                                     [(col + x, row - x) for x in range(right_top + 1)])
 
-                # 列消除逻辑
-                top = CalcUtil.calc_top(cur, self.all_jewelry)
-                down = CalcUtil.calc_down(cur, self.all_jewelry)
-                cnt = top + down + 1
-                if cnt >= 3:
-                    print(f"col {cnt}")
-                    for row in range(cur.get_row() - top, cur.get_row() + down + 1):
-                        self.all_jewelry[cur.get_col()][row].set_empty(True)
-                    self.jewelry += cnt
-                    self.jel_cnt += cnt
+        # 遍历并消除需要移除的所有珠宝
+        for col, row in to_remove:
+            self.all_jewelry[col][row].set_empty(True)
+            self.all_jewelry[col][row].set_color(pygame.Color('black'))  # 保持空黑块一致性
 
-                # 左上到右下的对角线消除
-                lefttop = CalcUtil.calc_left_top(cur, self.all_jewelry)
-                rightdown = CalcUtil.calc_right_down(cur, self.all_jewelry)
-                cnt = lefttop + rightdown + 1
-                if cnt >= 3:
-                    print(f"lefttop {cnt}")
-                    for row, col in zip(
-                            range(cur.get_row() - lefttop, cur.get_row() + rightdown + 1),
-                            range(cur.get_col() - lefttop, cur.get_col() + rightdown + 1),
-                    ):
-                        self.all_jewelry[col][row].set_empty(True)
-                    self.jewelry += cnt
-                    self.jel_cnt += cnt
-
-                # 左下到右上的对角线消除
-                leftdown = CalcUtil.calc_left_down(cur, self.all_jewelry)
-                righttop = CalcUtil.calc_right_top(cur, self.all_jewelry)
-                cnt = leftdown + righttop + 1
-                if cnt >= 3:
-                    print(f"righttop {cnt}")
-                    for row, col in zip(
-                            range(cur.get_row() + leftdown, cur.get_row() - righttop - 1, -1),
-                            range(cur.get_col() - leftdown, cur.get_col() + righttop + 1),
-                    ):
-                        self.all_jewelry[col][row].set_empty(True)
-                    self.jewelry += cnt
-                    self.jel_cnt += cnt
-
-        # 触发珠宝下落逻辑
-        remove = self.fall_jewelry()
-        if remove > 0:
-            print(f"remove: {remove}")
-            self.repaint()
-            # 多次执行，直到没有可消除的珠宝
-            self.remove_cycle()
+        # 触发下落逻辑
+        if to_remove:
+            self.fall_jewelry()
+            self.remove_cycle()  # 再次检测，确保连续消除
 
     def fall_jewelry(self):
-        """处理珠宝下落逻辑"""
+        """
+        实现方块向下掉落的功能，同时处理空白填充问题
+        """
         remove_cnt = 0
 
-        # 遍历所有列
-        for i in range(6):  # 假设游戏区域为 6 列
-            # 从每列底部向上遍历
-            for k in range(14, 0, -1):  # 假设游戏区域为 15 行，索引从 14 到 0
-                jewelry = self.all_jewelry[i][k]
-                if jewelry.is_empty():
-                    # 向上查找不为空的珠宝
-                    for x in range(k - 1, -1, -1):
-                        up_jewelry = self.all_jewelry[i][x]
-                        if not up_jewelry.is_empty():
-                            # 将上方珠宝移动到当前空格位置
-                            jewelry.set_color(up_jewelry.get_color())
-                            jewelry.set_empty(False)
+        # 遍历每一列，从底部向顶部检查珠宝
+        for col in range(GameConst.All_Cols()):
+            for row in range(GameConst.All_Rows() - 1, -1, -1):  # 从底部向上
+                cur_block = self.all_jewelry[col][row]
+                if cur_block.is_empty():  # 当前是空块
+                    # 继续向上寻找一个非空块进行交换
+                    for above_row in range(row - 1, -1, -1):  # 遍历上方的元素
+                        above_block = self.all_jewelry[col][above_row]
+                        if not above_block.is_empty():  # 找到非空方块
+                            # 将上方非空块移动到底部，当前块清空
+                            cur_block.set_color(above_block.get_color())
+                            cur_block.set_empty(False)
 
-                            # 重新生成一个新的空格
-                            n_jewelry = Jewelry()
-                            n_jewelry.set_row(x)
-                            n_jewelry.set_col(i)
-                            n_jewelry.set_color((0, 0, 0))  # 假设黑色表示空格
-                            n_jewelry.set_empty(True)
-                            self.all_jewelry[i][x] = n_jewelry
+                            above_block.set_color(pygame.Color('black'))  # 上方块变为空块
+                            above_block.set_empty(True)
 
                             remove_cnt += 1
                             break
-
         return remove_cnt
 
     def check_fail(self, shape):
