@@ -216,12 +216,16 @@ class CenterPanel():
                         if c and jewelry.get_color() == c.get_color():
                             self.check_times += 1
                             self.remove(c)
+
         # 更新当前形状和下一个形状
         self.curr_shape = self.next_shape  # 将下一个形状设置为当前形状
         self.next_shape = Shape.next_shape()  # 生成新的下一个形状
+        self.check_fail(self.curr_shape)
         # 调整时间间隔
         self.delay = max(100, 1000 - 3 * ((self.level + 1) % 256))  # 确保时间间隔不低于100ms
         self.timer.tick(self.delay)  # 使用 Pygame 的计时逻辑
+        # 调用检查失败逻辑
+
 
     def remove(self, target):
         """
@@ -232,7 +236,7 @@ class CenterPanel():
         if isinstance(target, Jewelry):  # 处理单个珠宝块
             target.set_empty(True)
             target.set_color(pygame.Color('black'))  # 将颜色设置为黑（空块）
-            print(f"Removed single jewelry at ({target.get_row()}, {target.get_col()})")
+            #print(f"Removed single jewelry at ({target.get_row()}, {target.get_col()})")
 
         elif isinstance(target, Shape):  # 处理整个形状
             for jewelry in target.get_jewelrys():
@@ -253,28 +257,28 @@ class CenterPanel():
                     for c in range(col - left, col + right + 1):
                         self.all_jewelry[c][row].set_empty(True)
                         self.all_jewelry[c][row].set_color(pygame.Color('black'))
-                        print(f"Removed horizontal block at ({row}, {c})")
+                        #print(f"Removed horizontal block at ({row}, {c})")
 
                 # 消除纵向连块
                 if top + down + 1 >= 3:
                     for r in range(row - top, row + down + 1):
                         self.all_jewelry[col][r].set_empty(True)
                         self.all_jewelry[col][r].set_color(pygame.Color('black'))
-                        print(f"Removed vertical block at ({r}, {col})")
+                        #print(f"Removed vertical block at ({r}, {col})")
 
                 # 消除左上-右下对角线
                 if left_top + right_down + 1 >= 3:
                     for offset in range(-left_top, right_down + 1):
                         self.all_jewelry[col + offset][row + offset].set_empty(True)
                         self.all_jewelry[col + offset][row + offset].set_color(pygame.Color('black'))
-                        print(f"Removed left-top to right-down diagonal block at ({row + offset}, {col + offset})")
+                        #print(f"Removed left-top to right-down diagonal block at ({row + offset}, {col + offset})")
 
                 # 消除左下-右上对角线
                 if left_down + right_top + 1 >= 3:
                     for offset in range(-left_down, right_top + 1):
                         self.all_jewelry[col + offset][row - offset].set_empty(True)
                         self.all_jewelry[col + offset][row - offset].set_color(pygame.Color('black'))
-                        print(f"Removed left-down to right-top diagonal block at ({row - offset}, {col + offset})")
+                        #print(f"Removed left-down to right-top diagonal block at ({row - offset}, {col + offset})")
 
             # 触发下落逻辑
             self.fall_jewelry()
@@ -294,57 +298,61 @@ class CenterPanel():
         """相当于 Java 中的 actionPerformed，用于重绘屏幕"""
         self.repaint()
 
-    def key_typed(self, event):
-        """相当于 Java 中的 keyTyped，处理键盘按键事件"""
-        pass  # 当前没有实现任何逻辑
-
     def repaint(self):
         """重新绘制屏幕内容"""
         self.screen.fill((255, 255, 255))  # 将屏幕填充为白色
         pygame.display.flip()  # 刷新屏幕显示
 
     def key_pressed(self, event):
-        # 键盘事件处理逻辑（可自定义）
+        """
+        键盘事件处理逻辑
+        使用 event.key 直接获取按键值，修复 key_code 未定义问题
+        """
         print(f"Key pressed: {event.key}")
 
-        if key_code == pygame.K_RETURN:  # 对应 Java 的 KeyEvent.VK_ENTER
-            # 未启动和暂停状态可以启动
-            if self.state == 0 or self.state == 2:
+        # Enter 键：开始游戏或恢复暂停状态
+        if event.key == pygame.K_RETURN:
+            if self.state == 0 or self.state == 2:  # 未启动或暂停状态
                 self.timer.tick(self.delay)
                 self.state = 1
 
-        elif key_code == pygame.K_ESCAPE:  # 对应 Java 的 KeyEvent.VK_ESCAPE
-            # 失败状态下按暂停无效
+        # Esc 键：暂停游戏
+        elif event.key == pygame.K_ESCAPE:
+            # 如果已经失败则不处理
             if self.fail:
                 return
-            if self.state == 1:
+            if self.state == 1:  # 游戏运行中，按下暂停
                 self.timer.tick(0)  # 停止计时器
-                self.repaint()
+                self.repaint()  # 重绘暂停界面
                 self.state = 2
 
-        elif key_code == pygame.K_a:  # 对应 Java 的 KeyEvent.VK_A
+        # A 键：向左移动当前形状
+        elif event.key == pygame.K_a:
             if self.curr_shape:
                 self.curr_shape.left()
                 self.repaint()
 
-        elif key_code == pygame.K_d:  # 对应 Java 的 KeyEvent.VK_D
+        # D 键：向右移动当前形状
+        elif event.key == pygame.K_d:
             if self.curr_shape:
                 self.curr_shape.right()
                 self.repaint()
 
-        elif key_code == pygame.K_s:  # 对应 Java 的 KeyEvent.VK_S
-            self.delay = 100
+        # S 键：快速下落（加速）
+        elif event.key == pygame.K_s:
+            self.delay = 100  # 设置快速下落的延迟
             self.speed_count += 1
             self.timer.tick(self.delay)
 
-        elif key_code == pygame.K_q:  # 对应 Java 的 KeyEvent.VK_Q
+        # Q 键：向下颜色交换
+        elif event.key == pygame.K_q:
             if self.curr_shape:
                 self.curr_shape.down()
 
-        elif key_code == pygame.K_e:  # 对应 Java 的 KeyEvent.VK_E
+        # E 键：向上颜色交换
+        elif event.key == pygame.K_e:
             if self.curr_shape:
                 self.curr_shape.up()
-
 
     def remove_cycle(self):
         """

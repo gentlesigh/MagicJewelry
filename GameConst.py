@@ -50,7 +50,7 @@ COLOR_LIST = [
 # 获取下一个颜色
 def next_color():
     color = random.choice(COLOR_LIST)
-    print(f"Selected color: {color}")  # 调试信息
+    #print(f"Selected color: {color}")  # 调试信息
     return color
 
 # 获取音乐文件路径

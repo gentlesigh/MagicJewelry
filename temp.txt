@@ -1,0 +1,41 @@
+    def key_pressed(self, event):
+        # 键盘事件处理逻辑（可自定义）
+        print(f"Key pressed: {event.key}")
+
+        if key_code == pygame.K_RETURN:  # 对应 Java 的 KeyEvent.VK_ENTER
+            # 未启动和暂停状态可以启动
+            if self.state == 0 or self.state == 2:
+                self.timer.tick(self.delay)
+                self.state = 1
+
+        elif key_code == pygame.K_ESCAPE:  # 对应 Java 的 KeyEvent.VK_ESCAPE
+            # 失败状态下按暂停无效
+            if self.fail:
+                return
+            if self.state == 1:
+                self.timer.tick(0)  # 停止计时器
+                self.repaint()
+                self.state = 2
+
+        elif key_code == pygame.K_a:  # 对应 Java 的 KeyEvent.VK_A
+            if self.curr_shape:
+                self.curr_shape.left()
+                self.repaint()
+
+        elif key_code == pygame.K_d:  # 对应 Java 的 KeyEvent.VK_D
+            if self.curr_shape:
+                self.curr_shape.right()
+                self.repaint()
+
+        elif key_code == pygame.K_s:  # 对应 Java 的 KeyEvent.VK_S
+            self.delay = 100
+            self.speed_count += 1
+            self.timer.tick(self.delay)
+
+        elif key_code == pygame.K_q:  # 对应 Java 的 KeyEvent.VK_Q
+            if self.curr_shape:
+                self.curr_shape.down()
+
+        elif key_code == pygame.K_e:  # 对应 Java 的 KeyEvent.VK_E
+            if self.curr_shape:
+                self.curr_shape.up()
