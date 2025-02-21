@@ -61,7 +61,7 @@ class Shape:
             color = GameConst.next_color()  # 随机颜色
             jewelry.set_color(color)
             jewelry.set_empty(False)
-            #print(f"Set jewelry color to: {color}")  # 调试信息
+            print(f"Set jewelry color to: {color}")  # 调试信息
         return shape  # 确认返回的是 Shape 对象
 
     @staticmethod

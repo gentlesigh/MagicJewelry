@@ -50,7 +50,7 @@ class Jewelry:
 
     def set_color(self, color):
         self.color = color
-        #print(f"Jewelry color set to: {self.color}")  # 调试信息
+        print(f"Jewelry color set to: {self.color}")  # 调试信息
 
     def get_x(self):
         return self.x

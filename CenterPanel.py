@@ -1,5 +1,7 @@
+import math
 import threading
 import pygame
+from pygame.key import key_code
 import GameConst
 from Jewelry import Jewelry
 from Shape import Shape
