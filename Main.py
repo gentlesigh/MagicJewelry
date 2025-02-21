@@ -3,7 +3,6 @@ import sys
 import threading
 
 from PyQt5.QtWidgets import QApplication
-
 from LoginModule import LoginWindow
 from CenterPanel import CenterPanel
 
@@ -18,42 +17,71 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Magic Jewelry")
 
 # 游戏状态变量
-game_state = "start"  # 可取值为 'start'（启动界面）、'single'（单人游戏）、'multi'（多人游戏）
+game_state = "start"  # 可取值为 'start'、'single'、'multi'
 center_panel = None  # 游戏主要逻辑面板，仅在进入游戏时初始化
+is_logged_in = False  # 登录状态
+logged_in_user = {}  # 存储登录用户信息，示例：{"account": "user123", "nickname": "Player1"}
 
 # 加载字体
 font = pygame.font.SysFont("微软雅黑", 36)
 
 
 def run_login_window():
-    """运行登录窗口"""
+    """启动登录窗口并更新登录状态"""
+    global is_logged_in, logged_in_user
+
+    def login_callback(success, user_info=None):
+        global is_logged_in, logged_in_user
+        if success and user_info:
+            is_logged_in = True
+            logged_in_user = user_info  # 保存登录用户信息
+            print(f"登录成功 - is_logged_in: {is_logged_in}, logged_in_user: {logged_in_user}")
+        else:
+            print("登录失败 - 用户信息未能识别")
+
     app = QApplication(sys.argv)
-    login_window = LoginWindow()  # 调用独立的登录窗口模块
+    login_window = LoginWindow(login_callback=login_callback)
     login_window.show()
     app.exec_()
 
 
 def draw_start_screen():
-    """绘制启动界面的内容"""
+    """绘制启动界面"""
+    global is_logged_in, logged_in_user
+
     screen.fill((0, 0, 0))  # 使用黑色背景
 
-    # 标题
-    title_text = font.render("Magic Jewelry", True, (255, 255, 255))  # 标题文字
-    screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, 100))
+    # 显示标题
+    title_text = font.render("Magic Jewelry", True, (255, 255, 255))
+    screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, 50))
 
     # 单人游戏按钮
-    single_game_text = font.render("Single Player", True, (0, 255, 0))  # 单人游戏文字
-    single_game_rect = pygame.Rect(WIDTH // 2 - 100, 200, 200, 50)
-    pygame.draw.rect(screen, (50, 50, 50), single_game_rect)  # 按钮底色
-    screen.blit(single_game_text, (WIDTH // 2 - single_game_text.get_width() // 2, 210))
+    single_game_text = font.render("Single Player", True, (0, 255, 0))
+    single_game_rect = pygame.Rect(WIDTH // 2 - 100, 150, 200, 50)
+    pygame.draw.rect(screen, (50, 50, 50), single_game_rect)
+    screen.blit(single_game_text, (WIDTH // 2 - single_game_text.get_width() // 2, 160))
 
-    # 多人游戏
+    # 多人游戏按钮
     multi_game_text = font.render("Multiplayer", True, (255, 255, 0))
-    multi_game_rect = pygame.Rect(WIDTH // 2 - 100, 300, 200, 50)
-    pygame.draw.rect(screen, (50, 50, 50), multi_game_rect)  # 按钮底色
-    screen.blit(multi_game_text, (WIDTH // 2 - multi_game_text.get_width() // 2, 310))
+    multi_game_rect = pygame.Rect(WIDTH // 2 - 100, 250, 200, 50)
+    pygame.draw.rect(screen, (50, 50, 50), multi_game_rect)
+    if not is_logged_in:
+        pygame.draw.rect(screen, (100, 100, 100), multi_game_rect)  # 未登录显示灰色
+    screen.blit(multi_game_text, (WIDTH // 2 - multi_game_text.get_width() // 2, 260))
 
-    return single_game_rect, multi_game_rect
+    # 登录按钮
+    login_text = font.render("Login", True, (0, 0, 255))
+    login_game_rect = pygame.Rect(WIDTH // 2 - 100, 350, 200, 50)
+    pygame.draw.rect(screen, (50, 50, 50), login_game_rect)
+    screen.blit(login_text, (WIDTH // 2 - login_text.get_width() // 2, 360))
+
+    # 显示当前已登录的用户信息（左上角）
+    if is_logged_in and "nickname" in logged_in_user:
+        user_status = f"User: {logged_in_user['nickname']}"  # 显示昵称
+        user_text = font.render(user_status, True, (255, 255, 255))
+        screen.blit(user_text, (10, 10))  # 左上角位置
+
+    return single_game_rect, multi_game_rect, login_game_rect
 
 
 # 主循环
@@ -63,45 +91,53 @@ running = True
 while running:
     clock.tick(60)
 
+    # 事件循环
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN and game_state == "start":
-            # 获取鼠标点击位置
-            mouse_pos = pygame.mouse.get_pos()
 
-            # 检测点击是否在按钮区域
-            single_game_rect, multi_game_rect = draw_start_screen()  # 绘制并获取按钮区域
+        elif event.type == pygame.MOUSEBUTTONDOWN and game_state == "start":
+            mouse_pos = pygame.mouse.get_pos()
+            single_game_rect, multi_game_rect, login_game_rect = draw_start_screen()
+
             if single_game_rect.collidepoint(mouse_pos):
-                game_state = "single"  # 切换到单人游戏模式
+                game_state = "single"
                 try:
-                    center_panel = CenterPanel()  # 初始化单人游戏逻辑
-                    center_panel.screen = screen  # 绑定窗口到 center_panel
+                    center_panel = CenterPanel()
+                    center_panel.screen = screen
                 except Exception as e:
                     print(f"初始化游戏时出错: {e}")
                     pygame.quit()
                     sys.exit(1)
+
             elif multi_game_rect.collidepoint(mouse_pos):
-                # 初始化登录界面
+                if is_logged_in:
+                    game_state = "multi"
+                    try:
+                        center_panel = CenterPanel()
+                        center_panel.screen = screen
+                    except Exception as e:
+                        print(f"初始化游戏时出错: {e}")
+                        pygame.quit()
+                        sys.exit(1)
+                    print("进入多人游戏模式")
+                else:
+                    print("请先登录！")
+
+            elif login_game_rect.collidepoint(mouse_pos):
                 threading.Thread(target=run_login_window, daemon=True).start()
 
+    # 游戏状态渲染
     if game_state == "start":
-        # 绘制启动界面
-        single_game_rect, multi_game_rect = draw_start_screen()
+        draw_start_screen()
     elif game_state == "single":
-        # 单人游戏逻辑
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 center_panel.key_pressed(event)
-
-        # 更新游戏逻辑
-        if center_panel.state == 1:  # 游戏运行
+        if center_panel.state == 1:
             center_panel.update_logic()
-
-        # 绘制内容
         center_panel.paint()
 
-    # 刷新画面
     pygame.display.flip()
 
 pygame.quit()

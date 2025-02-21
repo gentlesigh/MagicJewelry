@@ -10,8 +10,9 @@ SERVER_PORT = 13111  # 根据服务器端口修改
 
 # 定义 PyQt 登录界面类
 class LoginWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, login_callback=None):
         super().__init__()
+        self.login_callback = login_callback  # 回调函数，用于登录成功后通知主界面
         self.setWindowTitle("Multiplayer Login")
         self.setGeometry(100, 100, 400, 250)
 
@@ -81,6 +82,10 @@ class LoginWindow(QMainWindow):
             # 根据服务器返回的结果处理登录逻辑
             if result["status"] == "success":
                 print(f'登录成功，欢迎 {result["nickname"]}！')
+                if self.login_callback:  # 调用回调函数，通知登录成功
+                    user_info = {"account": account, "nickname": result["nickname"]}
+                    print(f"Passing user info to callback: {user_info}")
+                    self.login_callback(True, user_info)
                 self.close()  # 关闭登录窗口
             else:
                 print(f"登录失败: {result['message']}")
@@ -89,6 +94,7 @@ class LoginWindow(QMainWindow):
             print(f"连接服务器时出错: {e}")
         finally:
             client_socket.close()
+
     def open_register_window(self):
         """打开注册窗口"""
         self.register_window = RegisterWindow()
