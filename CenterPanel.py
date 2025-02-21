@@ -8,13 +8,14 @@ from Shape import Shape
 from CalcUtil import CalcUtil
 
 class CenterPanel():
-    def __init__(self):
+    def __init__(self, screen, get_user_info=None):
         self.state = 0
         self.fail = False
         self.jewelry_count = 0  # 初始化珠宝数量
         # Jewelry 是一个假想的类，在此处你需要定义或导入它
         self.all_jewelry = [[None for _ in range(GameConst.All_Rows())] for _ in range(GameConst.All_Cols())]
-
+        self.screen = screen  # 显示的屏幕
+        self.get_user_info = get_user_info  # 用于获取当前用户信息的回调函数
         self.score = 0
         self.level = 0
         self.jewelry = 0
@@ -22,7 +23,6 @@ class CenterPanel():
         self.speed_count = 0
         self.check_times = 0
         self.cur_remove_cnt = 0
-        self.screen = None
         self.curr_shape = Shape.next_shape()  # 确保初始化的当前形状有颜色
         self.next_shape = Shape.next_shape()  # 生成下一个形状 # Shape 也需要定义或导入
         self.color = (0, 0, 0)  # 背景颜色为黑色
@@ -152,6 +152,14 @@ class CenterPanel():
 
         # 绘制游戏的分数和数据
         self.draw_data()
+
+        # 获取用户信息（如果已登录）
+        if self.get_user_info:
+            user_info = self.get_user_info()  # 返回用户信息字典
+            if user_info and "nickname" in user_info:
+                font = pygame.font.SysFont("微软雅黑", 24, bold=True)
+                user_info_text = font.render(f"current user: {user_info['nickname']}", True, (255, 255, 255))
+                self.screen.blit(user_info_text, (10, self.screen.get_height() - 40))
 
     def draw_all_jewelry(self):
         for i in range(len(self.all_jewelry)):

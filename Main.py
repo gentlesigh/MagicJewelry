@@ -1,7 +1,6 @@
 import pygame
 import sys
 import threading
-
 from PyQt5.QtWidgets import QApplication
 from LoginModule import LoginWindow
 from CenterPanel import CenterPanel
@@ -18,7 +17,7 @@ pygame.display.set_caption("Magic Jewelry")
 
 # 游戏状态变量
 game_state = "start"  # 可取值为 'start'、'single'、'multi'
-center_panel = None  # 游戏主要逻辑面板，仅在进入游戏时初始化
+center_panel = None  # 游戏逻辑面板的初始值（在需要时动态初始化）
 is_logged_in = False  # 登录状态
 logged_in_user = {}  # 存储登录用户信息，示例：{"account": "user123", "nickname": "Player1"}
 
@@ -103,40 +102,41 @@ while running:
             if single_game_rect.collidepoint(mouse_pos):
                 game_state = "single"
                 try:
-                    center_panel = CenterPanel()
-                    center_panel.screen = screen
+                    center_panel = CenterPanel(screen=screen,
+                                               get_user_info=lambda: logged_in_user if is_logged_in else None)
                 except Exception as e:
                     print(f"初始化游戏时出错: {e}")
                     pygame.quit()
                     sys.exit(1)
 
             elif multi_game_rect.collidepoint(mouse_pos):
-                if is_logged_in:
-                    game_state = "multi"
+                if is_logged_in:  # 确保用户已登录
+                    game_state = "multi"  # 更新游戏状态为多人游戏
                     try:
-                        center_panel = CenterPanel()
-                        center_panel.screen = screen
+                        center_panel = CenterPanel(screen=screen,
+                                                   get_user_info=lambda: logged_in_user if is_logged_in else None)
                     except Exception as e:
-                        print(f"初始化游戏时出错: {e}")
+                        print(f"初始化多人游戏时出错: {e}")
                         pygame.quit()
                         sys.exit(1)
-                    print("进入多人游戏模式")
+                    print(f"进入多人游戏模式 - 当前用户: {logged_in_user}")
                 else:
                     print("请先登录！")
 
             elif login_game_rect.collidepoint(mouse_pos):
                 threading.Thread(target=run_login_window, daemon=True).start()
 
-    # 游戏状态渲染
+    # 渲染逻辑
     if game_state == "start":
         draw_start_screen()
-    elif game_state == "single":
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                center_panel.key_pressed(event)
-        if center_panel.state == 1:
-            center_panel.update_logic()
-        center_panel.paint()
+    elif game_state == "single" or game_state == "multi":
+        if center_panel:  # 防止未初始化的调用
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    center_panel.key_pressed(event)
+            if center_panel.state == 1:
+                center_panel.update_logic()
+            center_panel.paint()
 
     pygame.display.flip()
 
