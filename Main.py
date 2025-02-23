@@ -1,12 +1,33 @@
 import pygame
 import sys
 import threading
+import ctypes
 from PyQt5.QtWidgets import QApplication
+import GameConst
 from LoginModule import LoginWindow
 from CenterPanel import CenterPanel
 
+def set_input_language_to_english():
+        """ 使用 Windows API 切换输入法到英文 """
+        HWND = ctypes.windll.user32.GetForegroundWindow()  # 获取当前前台窗口句柄
+        LANG = 0x0409  # 英文键盘布局的语言标识符
+        HKL = ctypes.windll.user32.LoadKeyboardLayoutW(hex(LANG), 1)  # 加载英文键盘布局
+        ctypes.windll.user32.SendMessageW(HWND, 0x0050, 0, HKL)  # 0x0050 为 WM_INPUTLANGCHANGEREQUEST 消息切换语言布局
+        print("输入法已切换到英文")
+
+def bring_pygame_window_to_foreground():
+    """将 Pygame 窗口移至前台"""
+    hwnd = ctypes.windll.user32.GetForegroundWindow()  # 获取当前的前台窗口句柄
+    pygame_hwnd = pygame.display.get_wm_info()["window"]  # 获取 Pygame 窗口的句柄
+    if hwnd != pygame_hwnd:
+        ctypes.windll.user32.SetForegroundWindow(pygame_hwnd)  # 将 Pygame 窗口设置为前台窗口
+
+
 # 初始化 Pygame
 pygame.init()
+
+if __name__ == "__main__":
+    set_input_language_to_english()  # 初始化时强制切换为英文输入法
 
 # 定义窗口尺寸
 WIDTH, HEIGHT = 800, 600
@@ -48,7 +69,12 @@ def draw_start_screen():
     """绘制启动界面"""
     global is_logged_in, logged_in_user
 
-    screen.fill((0, 0, 0))  # 使用黑色背景
+    # 显示背景图片（修改部分）
+    background_image = GameConst.background
+    if background_image:  # 确保背景图片加载成功
+        screen.blit(background_image, (0, 0))
+    else:
+        screen.fill((0, 0, 0))  # 如果背景图片加载失败，使用黑色填充
 
     # 显示标题
     title_text = font.render("Magic Jewelry", True, (255, 255, 255))
@@ -83,62 +109,53 @@ def draw_start_screen():
     return single_game_rect, multi_game_rect, login_game_rect
 
 
+
 # 主循环
 clock = pygame.time.Clock()
 running = True
-
+# 将 Pygame 窗口前置
+bring_pygame_window_to_foreground()
+# 设置输入法为英文
+set_input_language_to_english()
+# 主循环
 while running:
     clock.tick(60)
-
-    # 事件循环
-    for event in pygame.event.get():
+    events = pygame.event.get()
+    for event in events:
         if event.type == pygame.QUIT:
             running = False
-
-        elif event.type == pygame.MOUSEBUTTONDOWN and game_state == "start":
+        elif center_panel and game_state in {"single", "multi"}:
+            center_panel.key_pressed(event)  # 将键盘事件传递给 CenterPanel
+            menu_signal = center_panel.handle_mouse_event(event)  # 处理鼠标事件
+            if menu_signal == "start":
+                game_state = "start"
+                center_panel = None  # 清空当前游戏面板
+        elif game_state == "start" and event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
             single_game_rect, multi_game_rect, login_game_rect = draw_start_screen()
-
             if single_game_rect.collidepoint(mouse_pos):
                 game_state = "single"
-                try:
+                center_panel = CenterPanel(screen=screen,
+                                           get_user_info=lambda: logged_in_user if is_logged_in else None)
+            elif multi_game_rect.collidepoint(mouse_pos):
+                if is_logged_in:
+                    game_state = "multi"
                     center_panel = CenterPanel(screen=screen,
                                                get_user_info=lambda: logged_in_user if is_logged_in else None)
-                except Exception as e:
-                    print(f"初始化游戏时出错: {e}")
-                    pygame.quit()
-                    sys.exit(1)
-
-            elif multi_game_rect.collidepoint(mouse_pos):
-                if is_logged_in:  # 确保用户已登录
-                    game_state = "multi"  # 更新游戏状态为多人游戏
-                    try:
-                        center_panel = CenterPanel(screen=screen,
-                                                   get_user_info=lambda: logged_in_user if is_logged_in else None)
-                    except Exception as e:
-                        print(f"初始化多人游戏时出错: {e}")
-                        pygame.quit()
-                        sys.exit(1)
-                    print(f"进入多人游戏模式 - 当前用户: {logged_in_user}")
                 else:
                     print("请先登录！")
-
             elif login_game_rect.collidepoint(mouse_pos):
                 threading.Thread(target=run_login_window, daemon=True).start()
 
     # 渲染逻辑
     if game_state == "start":
         draw_start_screen()
-    elif game_state == "single" or game_state == "multi":
-        if center_panel:  # 防止未初始化的调用
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN:
-                    center_panel.key_pressed(event)
-            if center_panel.state == 1:
-                center_panel.update_logic()
+    elif game_state in {"single", "multi"}:
+        if center_panel:
             center_panel.paint()
 
     pygame.display.flip()
+
 
 pygame.quit()
 sys.exit()

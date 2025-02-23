@@ -88,19 +88,16 @@ class CenterPanel():
 
         # 绘制暂停状态
         if self.state == 2:  # 如果游戏处于暂停状态
-            font = pygame.font.SysFont("微软雅黑", 72, bold=True)
-            text = font.render("Game Pause", True, (255, 255, 255))
-            self.screen.blit(text, (200, 300))  # 将暂停文字绘制到屏幕
-            return  # 返回，不继续绘制
+            # 绘制暂停菜单
+            self.draw_pause_menu()
+            pygame.display.flip()  # 强制刷新屏幕，确保暂停菜单显示
+            return  # 返回，不继续绘制其他内容
 
+        # 如果不是暂停状态，正常绘制游戏内容
         # 绘制 "NEXT" 提示文字
         font = pygame.font.SysFont("微软雅黑", 18, bold=True)
         text = font.render("NEXT", True, (255, 255, 255))
         self.screen.blit(text, (50, 50))
-
-        # 类型保护：检查 self.next_shape
-        if not isinstance(self.next_shape, Shape):
-            raise TypeError(f"next_shape 不是有效的 Shape 实例，而是 {type(self.next_shape)}")
 
         # 绘制下一个形状
         for jewelry in self.next_shape.get_jewelrys():
@@ -313,52 +310,51 @@ class CenterPanel():
 
     def key_pressed(self, event):
         """
-        键盘事件处理逻辑
-        使用 event.key 直接获取按键值，修复 key_code 未定义问题
+        添加暂停功能的键盘事件处理
         """
-        print(f"Key pressed: {event.key}")
+        if event.type != pygame.KEYDOWN:  # 判断是否是键盘事件
+            return  # 如果不是键盘事件，直接退出方法
 
-        # Enter 键：开始游戏或恢复暂停状态
-        if event.key == pygame.K_RETURN:
-            if self.state == 0 or self.state == 2:  # 未启动或暂停状态
+        # 使用 ESC 键暂停游戏（无论当前状态是什么）
+        if event.key == pygame.K_ESCAPE:
+            if self.state != 2:  # 如果不是已经处于暂停状态
+                self.state = 2  # 切换为暂停状态
+                self.timer.tick(0)  # 停止计时器
+            else:  # 如果当前已经暂停，则恢复游戏
+                self.state = 1
+                self.timer.tick(self.delay)  # 恢复计时器
+            return  # 继续按其他键无效
+
+        # 状态检测逻辑
+        if self.state == 2:  # 如果游戏处于暂停状态
+            return  # 暂停状态下忽略其他键盘事件
+
+        if event.key == pygame.K_RETURN:  # 回车键：开始/恢复游戏
+            if self.state == 0 or self.state == 2:
                 self.timer.tick(self.delay)
                 self.state = 1
 
-        # Esc 键：暂停游戏
-        elif event.key == pygame.K_ESCAPE:
-            # 如果已经失败则不处理
-            if self.fail:
-                return
-            if self.state == 1:  # 游戏运行中，按下暂停
-                self.timer.tick(0)  # 停止计时器
-                self.repaint()  # 重绘暂停界面
-                self.state = 2
 
-        # A 键：向左移动当前形状
-        elif event.key == pygame.K_a:
+        elif event.key == pygame.K_a:  # 左移
             if self.curr_shape:
                 self.curr_shape.left()
                 self.repaint()
 
-        # D 键：向右移动当前形状
-        elif event.key == pygame.K_d:
+        elif event.key == pygame.K_d:  # 右移
             if self.curr_shape:
                 self.curr_shape.right()
                 self.repaint()
 
-        # S 键：快速下落（加速）
-        elif event.key == pygame.K_s:
-            self.delay = 100  # 设置快速下落的延迟
+        elif event.key == pygame.K_s:  # 快速下落
+            self.delay = 100
             self.speed_count += 1
             self.timer.tick(self.delay)
 
-        # Q 键：向下颜色交换
-        elif event.key == pygame.K_q:
+        elif event.key == pygame.K_q:  # 向下颜色交换
             if self.curr_shape:
                 self.curr_shape.down()
 
-        # E 键：向上颜色交换
-        elif event.key == pygame.K_e:
+        elif event.key == pygame.K_e:  # 向上颜色交换
             if self.curr_shape:
                 self.curr_shape.up()
 
@@ -446,3 +442,47 @@ class CenterPanel():
                 return  # 一旦失败，直接返回，避免多余操作
 
         self.fail = False  # 如果没有触发失败条件，则游戏继续
+
+    def draw_pause_menu(self):
+        """绘制暂停菜单"""
+        # 半透明背景
+        overlay = pygame.Surface((800, 600))  # 假设窗口尺寸为 800x600
+        overlay.set_alpha(150)  # 设置透明度
+        overlay.fill((0, 0, 0))  # 黑色背景
+        self.screen.blit(overlay, (0, 0))
+
+        # 暂停标题
+        font = pygame.font.SysFont("微软雅黑", 72, bold=True)
+        text = font.render("PAUSED", True, (255, 255, 255))
+        self.screen.blit(text, (250, 150))  # 居中绘制标题
+
+        # 继续游戏按钮
+        button_font = pygame.font.SysFont("微软雅黑", 36)
+        resume_text = button_font.render("Resume", True, (0, 255, 0))
+        resume_rect = pygame.Rect(300, 300, 200, 50)  # 按钮区域
+        pygame.draw.rect(self.screen, (50, 50, 50), resume_rect)
+        self.screen.blit(resume_text, (resume_rect.x + 50, resume_rect.y + 10))
+
+        # 返回主界面按钮
+        menu_text = button_font.render("Main Menu", True, (255, 0, 0))
+        menu_rect = pygame.Rect(300, 400, 200, 50)  # 按钮区域
+        pygame.draw.rect(self.screen, (50, 50, 50), menu_rect)
+        self.screen.blit(menu_text, (menu_rect.x + 30, menu_rect.y + 10))
+
+        return resume_rect, menu_rect
+
+    def handle_mouse_event(self, event):
+        """
+        处理鼠标事件
+        """
+        if self.state == 2 and event.type == pygame.MOUSEBUTTONDOWN:
+            mouse_pos = pygame.mouse.get_pos()
+            resume_rect, menu_rect = self.draw_pause_menu()
+            if resume_rect.collidepoint(mouse_pos):  # 点击 Resume
+                self.state = 1  # 恢复游戏状态
+                self.timer.tick(self.delay)  # 恢复计时器
+            elif menu_rect.collidepoint(mouse_pos):  # 点击 Main Menu
+                return "start"  # 返回主菜单信号
+        return None
+
+
